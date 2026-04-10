@@ -100,13 +100,6 @@ index.html
 
 ---
 
-## ⚠️ Limitations
-
-* ❌ No real-time backend (collaboration is simulated)
-* ❌ Code execution limited to JavaScript
-* ❌ No persistence (refresh resets state)
-
----
 
 ## 🔮 Future Enhancements
 
