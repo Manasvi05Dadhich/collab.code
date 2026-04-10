@@ -1,32 +1,21 @@
 # 🚀 collab.code — Real-Time Collaborative Code Editor
 
-**collab.code** is a visually rich, multi-language collaborative code editor designed to simulate real-time coding environments. It enables users to join shared sessions, write code together, and experience live collaboration through an immersive UI.
+**collab.code** is a full-stack real-time collaborative code editor that enables multiple users to write, edit, and share code simultaneously in a shared session.
+
+Built using modern web technologies, it delivers a seamless coding experience with instant synchronization across users.
 
 ---
 
-## 🌟 Highlights
+## ✨ Features
 
-* 🧑‍💻 **Session-based collaboration**
-* 👀 **Live cursor simulation & collaborator presence**
-* 🌐 **Multi-language editor (JS, TS, Python, C++, HTML, CSS, Go, Rust)**
-* ⚡ **Instant code execution (JavaScript)**
-* 🎨 **Modern glassmorphism UI + animated backgrounds**
-* 🌗 **Dark / Light theme toggle**
-* 📊 **VS Code–like interface (tabs, sidebar, minimap, output panel)**
-
----
-
-## 🖼️ UI Overview
-
-* **Landing Page** → Animated hero + preview editor
-* **Join Screen** → Enter name, session ID, choose language
-* **Editor Screen** → Full IDE layout with:
-
-  * File explorer
-  * Code editor
-  * Live cursors
-  * Output console
-  * Collaborator panel
+* ⚡ **Real-time code collaboration**
+* 👥 **Multiple users in a shared room**
+* 🔄 **Live code synchronization**
+* 🧠 **Auto-sync for new users**
+* 🏠 **Room-based session system**
+* 📋 **Copy & share session ID**
+* 🚪 **Join / Leave functionality**
+* 🔔 **User join/leave notifications**
 
 ---
 
@@ -34,16 +23,27 @@
 
 ### Frontend
 
-* HTML5
-* CSS3 (Custom design system, animations, glass UI)
-* Vanilla JavaScript
+* ⚛️ React.js
+* React Router
+* CodeMirror (code editor)
 
-### Concepts Used
+### Backend
 
-* DOM Manipulation
-* State Management (language/session)
-* Dynamic UI rendering
-* Simulated collaborative environment
+* 🟢 Node.js
+* 🚂 Express.js
+* 🔌 Socket.io (WebSockets)
+
+---
+
+## 🧠 How It Works
+
+collab.code uses **WebSockets (Socket.io)** to maintain a persistent connection between the server and all connected clients.
+
+### 🔄 Real-time Flow
+
+```bash
+User A types → Server → User B & C instantly see updates
+```
 
 ---
 
@@ -52,8 +52,17 @@
 ```bash
 collab.code/
 │
-├── index.html        # Full application (UI + logic)
-├── README.md         # Project documentation
+├── client/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   └── App.js
+│
+├── server/
+│   ├── server.js
+│   └── socket.js
+│
+└── README.md
 ```
 
 ---
@@ -67,63 +76,82 @@ git clone https://github.com/your-username/collab.code.git
 cd collab.code
 ```
 
-### 2. Run the project
+---
 
-Simply open in browser:
+### 2. Setup Client
 
 ```bash
-index.html
+cd client
+npm install
+npm start
 ```
 
 ---
 
-## 🎮 Usage Flow
+### 3. Setup Server
 
-1. Open the app
-2. Click **“Start coding”**
-3. Enter:
-
-   * Your name
-   * Session ID (or generate one)
-4. Choose a programming language
-5. Start coding in the editor
+```bash
+cd server
+npm install
+node server.js
+```
 
 ---
 
-## 🧠 How It Works
+## 🎮 Usage
 
-* **Session IDs** simulate collaborative rooms
-* **Language system** dynamically loads code templates
-* **Editor logic** updates UI based on user actions
-* **Run button** executes JavaScript using `eval()`
-* **Collaborators panel** visually simulates real-time users
+1. Open the application
+2. Enter:
+
+   * Username
+   * Room ID (or generate one)
+3. Join the session
+4. Start coding collaboratively 🚀
 
 ---
 
+## 🔌 Socket Events
+
+| Event         | Description             |
+| ------------- | ----------------------- |
+| `join`        | User joins a room       |
+| `code-change` | Broadcast code updates  |
+| `sync-code`   | Sync code for new users |
+| `disconnect`  | Handle user leaving     |
+
+---
+
+## ⚠️ Limitations
+
+* ❌ Limited language support (depends on editor setup)
+* ❌ No authentication system
+* ❌ No persistent storage
+* ❌ Basic UI (can be enhanced further)
+
+---
 
 ## 🔮 Future Enhancements
 
-* 🔥 Real-time collaboration using **Socket.io**
-* 🧠 Backend code execution (multi-language support)
-* 👤 Authentication system
-* 💾 File saving & project workspace
-* 📡 Live cursor sync across users
-* 🐳 Secure sandboxed execution (Docker)
+* 🔥 Multi-language execution support
+* 👤 Authentication & user profiles
+* 💾 Save sessions/projects
+* 🎯 Live cursor tracking
+* 🌐 Deployment (Vercel / Render)
 
 ---
 
 ## 💡 Learning Outcomes
 
-* Building complex UI systems from scratch
-* Managing interactive states without frameworks
-* Designing production-level developer tools UI
-* Understanding real-time system architecture
+* Real-time communication using Socket.io
+* Full-stack architecture design
+* Handling multiple clients simultaneously
+* Building collaborative systems
 
 ---
 
 ## 🤝 Contributing
 
-Feel free to fork this project and improve it!
+Contributions are welcome! Feel free to fork and improve.
 
 ---
 
@@ -132,7 +160,6 @@ Feel free to fork this project and improve it!
 MIT License
 
 ---
-
 ## ⭐ Support
 
-If you like this project, give it a ⭐ on GitHub!
+If you like this project, consider giving it a ⭐ on GitHub!
