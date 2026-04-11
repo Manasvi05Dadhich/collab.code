@@ -167,3 +167,9 @@ footer a {
 footer a:hover {
   color: #6c63ff;
 }
+
+/* --- Editor Page --- */
+.Logo img {
+  width: 150px;
+  height: auto;
+}
