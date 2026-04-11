@@ -36,7 +36,6 @@
   }
 }
 
-
 .FormWrapper img {
   width: 130px;
   margin-bottom: 12px;
@@ -91,7 +90,6 @@
   box-shadow: 0 0 0 3px rgba(78, 175, 255, 0.15);
 }
 
-/* --- Join Button --- */
 .joinBtn {
   margin-top: 8px;
   width: 100%;
@@ -120,7 +118,6 @@
   box-shadow: 0 2px 8px rgba(78, 175, 255, 0.25);
 }
 
-
 .moreInfo {
   display: block;
   margin-top: 8px;
@@ -139,7 +136,6 @@
   color: #6c63ff;
   text-decoration: underline;
 }
-
 
 footer {
   position: fixed;
@@ -168,8 +164,21 @@ footer a:hover {
   color: #6c63ff;
 }
 
-/* --- Editor Page --- */
 .Logo img {
   width: 150px;
   height: auto;
+}
+
+.MainWrap {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+
+}
+
+.CodingArea {
+  background-color: #1c1e29;
+  padding: 16px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
 }

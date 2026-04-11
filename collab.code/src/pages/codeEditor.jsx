@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Client from "../components/Client";
+import Editor from "../components/Editor";
 
 function CodeEditor() {
 
@@ -22,10 +23,14 @@ function CodeEditor() {
                                     <Client key={client.socketId} username={client.username} />
                               ))}
                         </div>
+                        <div>
+                              <button className="roomIDbtn">Copy Room ID</button>
+                              <button className="leaveRoomBtn">Leave Room</button>
+                        </div>
                   </div>
             </div>
             <div className="CodingArea">
-
+                  <Editor></Editor>
             </div>
 
       </div>
