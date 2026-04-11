@@ -172,6 +172,7 @@ footer a:hover {
 .MainWrap {
   display: grid;
   grid-template-columns: 230px 1fr;
+  height: 100vh;
 
 }
 
@@ -181,4 +182,15 @@ footer a:hover {
   color: #fff;
   display: flex;
   flex-direction: column;
+}
+
+.asideInner {
+  flex: 1
+}
+
+.ClientList {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px
 }
