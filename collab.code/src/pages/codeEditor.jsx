@@ -211,34 +211,34 @@ function CodeEditor() {
     // socket.emit('cursor-change', { ...data, username, roomId });
   }, []);
 
-  /* ───── Keyboard shortcuts ───── */
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ctrl + ` → toggle output panel
       if (e.ctrlKey && e.key === "`") {
         e.preventDefault();
         setShowOutput((prev) => !prev);
       }
-      // Ctrl + Enter → run code
+
       if (e.ctrlKey && e.key === "Enter") {
         e.preventDefault();
         handleRun();
       }
-      // Ctrl + S → save (prevent browser default, show saved status)
+
       if (e.ctrlKey && e.key === "s") {
         e.preventDefault();
         setSaveStatus("saving");
         setTimeout(() => setSaveStatus("saved"), 400);
         toast.success("Saved!", { duration: 1500 });
       }
+      // Ctrl + N → new file
+      if (e.ctrlKey && e.key === "n") {
+        e.preventDefault();
+        handleAddFile();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleRun]);
+  }, [handleRun, handleAddFile]);
 
-  /* ═══════════════════════════════════════════════
-   *  Render
-   * ═══════════════════════════════════════════════ */
   return (
     <div className="MainWrap" data-theme={theme}>
       {/* ── Sidebar ── */}
@@ -264,7 +264,7 @@ function CodeEditor() {
         </div>
       </div>
 
-      {/* ── Coding Area ── */}
+
       <div className="CodingArea">
         <Toolbar
           language={activeFile.language}
@@ -334,10 +334,10 @@ function executeJavaScript(code) {
           a === null
             ? "null"
             : a === undefined
-            ? "undefined"
-            : typeof a === "object"
-            ? JSON.stringify(a, null, 2)
-            : String(a)
+              ? "undefined"
+              : typeof a === "object"
+                ? JSON.stringify(a, null, 2)
+                : String(a)
         )
         .join(" "),
       timestamp: Date.now(),
@@ -350,21 +350,19 @@ function executeJavaScript(code) {
     info: makeEntry("info"),
     table: makeEntry("log"),
     dir: makeEntry("log"),
-    clear: () => {},
+    clear: () => { },
   };
 
   try {
-    // eslint-disable-next-line no-new-func
     const fn = new Function("console", code);
     const result = fn(mockConsole);
     if (result !== undefined) {
       output.push({
         type: "return",
-        text: `→ ${
-          typeof result === "object"
+        text: `→ ${typeof result === "object"
             ? JSON.stringify(result, null, 2)
             : String(result)
-        }`,
+          }`,
         timestamp: Date.now(),
       });
     }
