@@ -46,7 +46,7 @@ export default function OutputPanel({
     [height, onResize]
   );
 
-  /* ---- Collapsed state ---- */
+
   if (!isVisible) {
     return (
       <div className="OutputCollapsed">
@@ -60,7 +60,7 @@ export default function OutputPanel({
     );
   }
 
-  /* ---- Expanded state ---- */
+
   return (
     <div className="OutputPanel" style={{ height }}>
       <div className="OutputResizeHandle" onMouseDown={handleMouseDown}>

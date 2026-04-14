@@ -1,9 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import MonacoEditor from "@monaco-editor/react";
 
-/* ──────────────────────────────────────────────
- *  Inject dynamic CSS for remote cursor styles
- * ────────────────────────────────────────────── */
 function injectCursorStyles(cursors) {
   let styleEl = document.getElementById("remote-cursor-styles");
   if (!styleEl) {
@@ -65,7 +62,6 @@ export default function Editor({
   const monacoRef = useRef(null);
   const decorationsRef = useRef(null);
 
-  /* ---- Define custom themes before the editor mounts ---- */
   const handleBeforeMount = (monaco) => {
     monaco.editor.defineTheme("collab-dark", {
       base: "vs-dark",
@@ -131,12 +127,12 @@ export default function Editor({
     });
   };
 
-  /* ---- After the editor mounts ---- */
+
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-    // Track cursor position changes
+
     editor.onDidChangeCursorPosition((e) => {
       if (onCursorChange) {
         const selection = editor.getSelection();
@@ -154,8 +150,6 @@ export default function Editor({
         });
       }
     });
-
-    // Track selection changes
     editor.onDidChangeCursorSelection((e) => {
       if (onCursorChange) {
         const sel = e.selection;
@@ -178,7 +172,7 @@ export default function Editor({
     }
   };
 
-  /* ---- Render remote cursor decorations ---- */
+
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current || remoteCursors.length === 0)
       return;
@@ -186,7 +180,7 @@ export default function Editor({
     const editor = editorRef.current;
     const monaco = monacoRef.current;
 
-    // Inject CSS for cursor colors & labels
+
     injectCursorStyles(remoteCursors);
 
     const decorations = [];
@@ -194,7 +188,6 @@ export default function Editor({
     remoteCursors.forEach((cursor) => {
       if (!cursor.position) return;
 
-      // Cursor line
       decorations.push({
         range: new monaco.Range(
           cursor.position.lineNumber,
@@ -209,7 +202,6 @@ export default function Editor({
         },
       });
 
-      // Selection highlight
       if (cursor.selection) {
         decorations.push({
           range: new monaco.Range(
@@ -232,7 +224,6 @@ export default function Editor({
     decorationsRef.current = editor.createDecorationsCollection(decorations);
   }, [remoteCursors]);
 
-  /* ---- Render ---- */
   return (
     <div className="EditorContainer">
       <MonacoEditor

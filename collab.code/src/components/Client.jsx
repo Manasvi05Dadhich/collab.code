@@ -5,6 +5,10 @@ export default function Client({ username }) {
     return (<div className="CLient">
         <Avatar name={username} size={50} round={14} />
         <span className="username"> {username}</span>
-    </div>)
+    </div>
+    
+    
+)
+
 }
 
