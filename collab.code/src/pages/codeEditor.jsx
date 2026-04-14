@@ -12,6 +12,8 @@ import {
   getLanguageByExt,
   getExtFromFilename,
 } from "../constants/languages";
+import { initSocket } from "../socket";
+import ACTIONS from "../constants/Actions";
 
 let fileCounter = 1;
 
@@ -21,7 +23,6 @@ function CodeEditor() {
   const navigate = useNavigate();
   const username = location.state?.username || "Anonymous";
 
-  /* ───── File state ───── */
   const [files, setFiles] = useState([
     {
       id: "file-1",
@@ -32,26 +33,43 @@ function CodeEditor() {
   ]);
   const [activeFileId, setActiveFileId] = useState("file-1");
 
-  /* ───── Editor settings ───── */
+
   const [theme, setTheme] = useState("dark");
   const [fontSize, setFontSize] = useState(14);
 
-  /* ───── Output ───── */
+
   const [output, setOutput] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [showOutput, setShowOutput] = useState(true);
   const [outputHeight, setOutputHeight] = useState(200);
-
-  /* ───── Save status ───── */
   const [saveStatus, setSaveStatus] = useState("saved");
   const saveTimerRef = useRef(null);
+  const socketRef = useRef(null);
 
-  /* ───── Connected clients (mock — replace with Socket.IO) ───── */
-  const [clients] = useState([
-    { socketId: 1, username: username },
+  /* ───── Connected clients ───── */
+  const [clients, setClients] = useState([
+    { username: username },
   ]);
 
-  /* ───── Remote cursors (mock for demo) ───── */
+  /* ───── Socket.IO connection ───── */
+  useEffect(() => {
+    const init = async () => {
+      socketRef.current = await initSocket();
+      socketRef.current.emit(ACTIONS.JOIN, {
+        roomId,
+        username: location.state?.username,
+      });
+    };
+    init();
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, []);
+
+
   const [remoteCursors] = useState([
     {
       id: "user-alice",
@@ -74,14 +92,9 @@ function CodeEditor() {
     },
   ]);
 
-  /* ───── Derived ───── */
+
   const activeFile = files.find((f) => f.id === activeFileId) || files[0];
 
-  /* ═══════════════════════════════════════════════
-   *  Handlers
-   * ═══════════════════════════════════════════════ */
-
-  /** Code changes → update file + trigger auto-save simulation */
   const handleCodeChange = useCallback(
     (newCode) => {
       setFiles((prev) =>
@@ -94,14 +107,14 @@ function CodeEditor() {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         setSaveStatus("saving");
-        // Simulates a network save — replace with real API call
+
         setTimeout(() => setSaveStatus("saved"), 500);
       }, 1500);
     },
     [activeFileId]
   );
 
-  /** Language change → update active file's language + extension */
+
   const handleLanguageChange = useCallback(
     (langId) => {
       setFiles((prev) =>
@@ -112,7 +125,7 @@ function CodeEditor() {
           const baseName = f.name.includes(".")
             ? f.name.split(".").slice(0, -1).join(".")
             : f.name;
-          return { ...f, language: langId, name: `${baseName}.${ext}` };
+          return { ...f, language: langId, name: `${baseName}.${ext}`, code: lang?.template || "" };
         })
       );
     },
@@ -159,7 +172,6 @@ function CodeEditor() {
     setActiveFileId(newFile.id);
   }, []);
 
-  /** Close a file tab */
   const handleCloseFile = useCallback(
     (fileId) => {
       setFiles((prev) => {
@@ -173,7 +185,7 @@ function CodeEditor() {
     [activeFileId]
   );
 
-  /** Rename a file (double-click tab) → auto-detect language from new extension */
+
   const handleRenameFile = useCallback((fileId, newName) => {
     setFiles((prev) =>
       prev.map((f) => {
@@ -189,7 +201,6 @@ function CodeEditor() {
     );
   }, []);
 
-  /** Copy room ID to clipboard */
   const copyRoomId = async () => {
     try {
       await navigator.clipboard.writeText(roomId);
@@ -199,7 +210,7 @@ function CodeEditor() {
     }
   };
 
-  /** Leave room → navigate home */
+
   const leaveRoom = () => {
     navigate("/");
     toast.success("Left the room");
@@ -360,8 +371,8 @@ function executeJavaScript(code) {
       output.push({
         type: "return",
         text: `→ ${typeof result === "object"
-            ? JSON.stringify(result, null, 2)
-            : String(result)
+          ? JSON.stringify(result, null, 2)
+          : String(result)
           }`,
         timestamp: Date.now(),
       });
