@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useParams, useLocation, useNavigate, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Client from "../components/Client";
 import Editor from "../components/Editor";
@@ -21,6 +21,7 @@ function CodeEditor() {
   const { roomId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+
   const username = location.state?.username || "Anonymous";
 
   const [files, setFiles] = useState([
@@ -54,43 +55,82 @@ function CodeEditor() {
   /* ───── Socket.IO connection ───── */
   useEffect(() => {
     const init = async () => {
-      socketRef.current = await initSocket();
-      socketRef.current.emit(ACTIONS.JOIN, {
-        roomId,
-        username: location.state?.username,
-      });
+      try {
+        socketRef.current = await initSocket();
+
+        // ── Connection error handling ──
+        const handleError = (err) => {
+          console.error("Socket error:", err);
+          toast.error("Connection failed. Redirecting...");
+          navigate("/");
+        };
+        socketRef.current.on("connect_error", handleError);
+        socketRef.current.on("connect_timeout", handleError);
+        socketRef.current.on("error", handleError);
+
+        // ── JOINED: someone entered the room ──
+        socketRef.current.on(ACTIONS.JOINED, ({ clients, username: joinedUser, socketId }) => {
+          if (joinedUser !== location.state?.username) {
+            toast.success(`${joinedUser} joined the room`);
+          }
+          setClients(clients);
+
+          // Send current code to the new joiner so they're in sync
+          socketRef.current.emit(ACTIONS.SYNC_CODE, {
+            socketId,
+            code: activeFileRef.current?.code,
+          });
+        });
+
+        // ── DISCONNECTED: someone left the room ──
+        socketRef.current.on(ACTIONS.DISCONNECTED, ({ socketId, username: leftUser }) => {
+          toast.success(`${leftUser} left the room`);
+          setClients((prev) => prev.filter((c) => c.socketId !== socketId));
+        });
+
+        // ── CODE_CHANGE: receive code from another user ──
+        socketRef.current.on(ACTIONS.CODE_CHANGE, ({ code }) => {
+          if (code !== null && code !== undefined) {
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.id === activeFileIdRef.current ? { ...f, code } : f
+              )
+            );
+          }
+        });
+
+        socketRef.current.emit(ACTIONS.JOIN, {
+          roomId,
+          username: location.state?.username,
+        });
+      } catch (err) {
+        console.error("Failed to connect:", err);
+        toast.error("Could not connect to the server.");
+        navigate("/");
+      }
     };
+
     init();
 
     return () => {
       if (socketRef.current) {
+        socketRef.current.off("connect_error");
+        socketRef.current.off("connect_timeout");
+        socketRef.current.off("error");
+        socketRef.current.off(ACTIONS.JOINED);
+        socketRef.current.off(ACTIONS.DISCONNECTED);
+        socketRef.current.off(ACTIONS.CODE_CHANGE);
         socketRef.current.disconnect();
       }
     };
   }, []);
 
 
-  const [remoteCursors] = useState([
-    {
-      id: "user-alice",
-      username: "Alice",
-      color: "#FF6B6B",
-      position: { lineNumber: 3, column: 15 },
-      selection: null,
-    },
-    {
-      id: "user-bob",
-      username: "Bob",
-      color: "#4ECDC4",
-      position: { lineNumber: 6, column: 5 },
-      selection: {
-        startLineNumber: 6,
-        startColumn: 5,
-        endLineNumber: 6,
-        endColumn: 28,
-      },
-    },
-  ]);
+  // Refs so socket listeners can always read latest values without stale closures
+  const activeFileRef = useRef(null);
+  const activeFileIdRef = useRef(activeFileId);
+
+  const [remoteCursors] = useState([]);
 
 
   const activeFile = files.find((f) => f.id === activeFileId) || files[0];
@@ -249,6 +289,10 @@ function CodeEditor() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleRun, handleAddFile]);
+
+  if (!location.state) {
+    return <Navigate to="/" />;
+  }
 
   return (
     <div className="MainWrap" data-theme={theme}>
