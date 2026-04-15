@@ -1,165 +1,77 @@
-# 🚀 collab.code — Real-Time Collaborative Code Editor
+# collab.code
 
-**collab.code** is a full-stack real-time collaborative code editor that enables multiple users to write, edit, and share code simultaneously in a shared session.
+A real-time collaborative code editor I built to learn how WebSockets actually work under the hood. You open a session, share the ID with someone, and both of you can type in the same file at the same time — changes show up instantly on the other side.
 
-Built using modern web technologies, it delivers a seamless coding experience with instant synchronization across users.
+## What it does
 
----
+- **Live editing** — two or more people can edit the same code simultaneously. No polling, no refreshing. It's all WebSocket-based through Socket.io.
+- **Room system** — each session gets a unique UUID. Share it and anyone can join. When someone joins or leaves, everyone gets a toast notification.
+- **8 languages** — JavaScript, TypeScript, Python, Rust, Go, C++, CSS, HTML. Monaco handles syntax highlighting for all of them.
+- **Run JS/TS in the browser** — there's a built-in execution engine that sandboxes your code using `new Function()`. Hit Ctrl+Enter or click Run.
+- **Multi-file support** — create new files, rename them (double-click in the sidebar), close them. Each file keeps its own state.
+- **Resizable panels** — sidebar and terminal panel can be dragged to resize, just like VS Code.
 
-## ✨ Features
+## Tech stack
 
-* ⚡ **Real-time code collaboration**
-* 👥 **Multiple users in a shared room**
-* 🔄 **Live code synchronization**
-* 🧠 **Auto-sync for new users**
-* 🏠 **Room-based session system**
-* 📋 **Copy & share session ID**
-* 🚪 **Join / Leave functionality**
-* 🔔 **User join/leave notifications**
+| Layer | What I used |
+|-------|-------------|
+| Frontend | React, React Router, Monaco Editor |
+| Backend | Node.js, Express, Socket.io |
+| Styling | Vanilla CSS (no Tailwind, no Bootstrap) |
 
----
+The UI is dark-mode by default with a light mode toggle. I went for a clean, minimal look inspired by Apple's design language — lots of subtle blur effects, smooth transitions, and a muted color palette.
 
-## 🏗️ Tech Stack
+## Running it locally
 
-### Frontend
+You need two terminals open.
 
-* ⚛️ React.js
-* React Router
-* CodeMirror (code editor)
-
-### Backend
-
-* 🟢 Node.js
-* 🚂 Express.js
-* 🔌 Socket.io (WebSockets)
-
----
-
-## 🧠 How It Works
-
-collab.code uses **WebSockets (Socket.io)** to maintain a persistent connection between the server and all connected clients.
-
-### 🔄 Real-time Flow
-
+**Terminal 1 — backend:**
 ```bash
-User A types → Server → User B & C instantly see updates
+cd collaborative-code-editor
+npm install
+npm run server:dev
 ```
 
----
-
-## 📁 Project Structure
-
+**Terminal 2 — frontend:**
 ```bash
-collab.code/
-│
-├── client/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   └── App.js
-│
-├── server/
-│   ├── server.js
-│   └── socket.js
-│
-└── README.md
-```
-
----
-
-## 🚀 Getting Started
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/your-username/collab.code.git
-cd collab.code
-```
-
----
-
-### 2. Setup Client
-
-```bash
-cd client
+cd collaborative-code-editor/collab.code
 npm install
 npm start
 ```
 
----
+Frontend runs on `localhost:3000`, backend on `localhost:5000`. There's a `.env` file inside `collab.code/` that points the frontend to the backend URL.
 
-### 3. Setup Server
+## How the real-time sync works
 
-```bash
-cd server
-npm install
-node server.js
-```
+Pretty straightforward Socket.io event flow:
 
----
+1. User joins a room → server stores their socket ID and broadcasts to everyone
+2. Existing users send their current code to the new joiner via `sync-code`
+3. When anyone types, `code-change` gets emitted → server relays it to everyone else in the room
+4. On disconnect, server notifies remaining users
 
-## 🎮 Usage
+That's it. No CRDT, no OT algorithm. For a small number of concurrent editors it works fine.
 
-1. Open the application
-2. Enter:
+## Keyboard shortcuts
 
-   * Username
-   * Room ID (or generate one)
-3. Join the session
-4. Start coding collaboratively 🚀
+- `Ctrl + Enter` — run code
+- `Ctrl + S` — save (visual feedback only for now)
+- `Ctrl + N` — new file
 
----
+## Known limitations
 
-## 🔌 Socket Events
+- No persistent storage — refresh the page and your code is gone
+- No auth — anyone with the room ID can join
+- Only JS/TS can actually execute — other languages just get syntax highlighting
+- No conflict resolution for simultaneous edits on the exact same line
 
-| Event         | Description             |
-| ------------- | ----------------------- |
-| `join`        | User joins a room       |
-| `code-change` | Broadcast code updates  |
-| `sync-code`   | Sync code for new users |
-| `disconnect`  | Handle user leaving     |
+## What I'd add next
 
----
+- Hook up the [Piston API](https://github.com/engineer-man/piston) so Python/Rust/Go/C++ can actually run
+- Remote cursor positions so you can see where others are typing
+- MongoDB or Redis to persist sessions
+- Proper operational transforms if this ever needs to scale
 
-## ⚠️ Limitations
+## License
 
-* ❌ Limited language support (depends on editor setup)
-* ❌ No authentication system
-* ❌ No persistent storage
-* ❌ Basic UI (can be enhanced further)
-
----
-
-## 🔮 Future Enhancements
-
-* 🔥 Multi-language execution support
-* 👤 Authentication & user profiles
-* 💾 Save sessions/projects
-* 🎯 Live cursor tracking
-* 🌐 Deployment (Vercel / Render)
-
----
-
-## 💡 Learning Outcomes
-
-* Real-time communication using Socket.io
-* Full-stack architecture design
-* Handling multiple clients simultaneously
-* Building collaborative systems
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to fork and improve.
-
----
-
-## 📜 License
-
-MIT License
-
----
-## ⭐ Support
-
-If you like this project, consider giving it a ⭐ on GitHub!
+MIT
