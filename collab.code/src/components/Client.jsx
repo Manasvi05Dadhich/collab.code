@@ -1,14 +1,18 @@
 import React from "react";
-import Avatar from 'react-avatar'
 
-export default function Client({ username }) {
-    return (<div className="CLient">
-        <Avatar name={username} size={50} round={14} />
-        <span className="username"> {username}</span>
+export default function Client({ username, color, isYou = false }) {
+  const initial = username ? username[0].toUpperCase() : "?";
+
+  return (
+    <div className="e-cr">
+      <div className="e-cav" style={{ background: color }}>
+        {initial}
+      </div>
+      <div className="e-ci">
+        <div className="e-cn">{isYou ? `${username} (you)` : username}</div>
+        <div className="e-cs">editing</div>
+      </div>
+      <div className="e-cdot" style={{ background: color }} />
     </div>
-    
-    
-)
-
+  );
 }
-

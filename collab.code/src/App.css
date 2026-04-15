@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
 
 /* ── Apple-grade tokens ── */
 [data-theme="dark"] {
@@ -49,10 +49,12 @@
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
 body {
-  font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', BlinkMacSystemFont, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02','cv03','cv04','cv11';
   transition: background .35s, color .35s;
   height: 100%;
   overflow: hidden;
@@ -540,3 +542,50 @@ body {
 
 /* Monaco container */
 .EditorContainer { width: 100%; height: 100%; }
+
+/* ── Resize handles ── */
+.e-resize-x {
+  width: 4px; flex-shrink: 0; cursor: col-resize;
+  background: var(--sep); transition: background .15s; z-index: 5;
+}
+.e-resize-x:hover, .e-resize-x:active { background: var(--acc); }
+
+.e-resize-y {
+  height: 4px; flex-shrink: 0; cursor: row-resize;
+  background: var(--sep); transition: background .15s; z-index: 5;
+}
+.e-resize-y:hover, .e-resize-y:active { background: var(--acc); }
+
+/* ── Code area: editor + terminal stacked ── */
+.e-code-area {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-width: 0; min-height: 0; position: relative;
+}
+
+/* ── Terminal / Output panel ── */
+.e-terminal {
+  display: flex; flex-direction: column;
+  flex-shrink: 0; overflow: hidden; background: var(--bg1);
+}
+.e-terminal-h {
+  height: 30px; flex-shrink: 0;
+  display: flex; align-items: center;
+  padding: 0 14px; gap: 12px;
+  border-bottom: .5px solid var(--sep); background: var(--bg2);
+}
+.e-terminal-tab {
+  font-size: 11px; font-weight: 600; color: var(--text3); cursor: pointer;
+  padding: 0 8px; height: 100%; display: flex; align-items: center;
+  border-bottom: 1.5px solid transparent; letter-spacing: -0.01em; transition: all .15s;
+}
+.e-terminal-tab.on { color: var(--text); border-bottom-color: var(--acc); }
+.e-terminal-body {
+  flex: 1; padding: 10px 14px; overflow-y: auto;
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  line-height: 20px; color: var(--text2); letter-spacing: .015em;
+}
+.e-terminal-body::-webkit-scrollbar { width: 3px; }
+.e-terminal-body::-webkit-scrollbar-thumb { background: var(--sep2); border-radius: 2px; }
+
+/* ── Right collab panel (slimmer) ── */
+.e-rp-body { flex: 1; overflow-y: auto; padding: 10px 14px; }

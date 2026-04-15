@@ -23,10 +23,7 @@ function Home() {
   }, [theme]);
 
   const generateId = () => {
-    const words = ["dawn","mist","calm","dusk","tide","haze","flux","glow","echo","rift"];
-    const w = words[Math.floor(Math.random() * words.length)];
-    const n = Math.random().toString(36).slice(2, 6);
-    setRoomId(w + "-" + n);
+    setRoomId(uuidv4());
   };
 
   const joinRoom = () => {
