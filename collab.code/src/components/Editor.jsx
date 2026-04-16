@@ -3,48 +3,7 @@ import MonacoEditor from "@monaco-editor/react";
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import { MonacoBinding } from 'y-monaco'
-import CURSOR_COLORS  from '../constants/cursorColors';  
-function injectCursorStyles(cursors) {
-  let styleEl = document.getElementById("remote-cursor-styles");
-  if (!styleEl) {
-    styleEl = document.createElement("style");
-    styleEl.id = "remote-cursor-styles";
-    document.head.appendChild(styleEl);
-  }
-  const css = cursors
-    .map(
-      (cursor) => `
-    .remote-cursor-${cursor.id} {
-      border-left: 2px solid ${cursor.color} !important;
-      margin-left: -1px;
-    }
-    .remote-cursor-widget-${cursor.id}::after {
-      content: '${cursor.username}';
-      position: absolute;
-      top: -1.4em;
-      left: -1px;
-      background: ${cursor.color};
-      color: #fff;
-      padding: 1px 6px 2px;
-      border-radius: 3px 3px 3px 0;
-      font-size: 11px;
-      font-weight: 600;
-      font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
-      white-space: nowrap;
-      pointer-events: none;
-      z-index: 100;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-      animation: cursorLabelFadeIn 0.2s ease;
-    }
-    .remote-selection-${cursor.id} {
-      background-color: ${cursor.color}30 !important;
-    }
-  `
-    )
-    .join("\n");
-
-  styleEl.textContent = css;
-}
+import CURSOR_COLORS from '../constants/cursorColors';
 
 export default function Editor({
   filePath,
@@ -53,15 +12,11 @@ export default function Editor({
   theme,
   fontSize,
   onChange,
-  onCursorChange,
-  remoteCursors = [],
-  onEditorMount,
   roomId,
   username,
 }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
-  const decorationsRef = useRef(null);
   const providerRef = useRef(null);
   const [editorReady, setEditorReady] = useState(false);
 
@@ -135,45 +90,6 @@ export default function Editor({
     editorRef.current = editor;
     monacoRef.current = monaco;
     setEditorReady(true);
-
-
-    editor.onDidChangeCursorPosition((e) => {
-      if (onCursorChange) {
-        const selection = editor.getSelection();
-        onCursorChange({
-          position: e.position,
-          selection:
-            selection && !selection.isEmpty()
-              ? {
-                  startLineNumber: selection.startLineNumber,
-                  startColumn: selection.startColumn,
-                  endLineNumber: selection.endLineNumber,
-                  endColumn: selection.endColumn,
-                }
-              : null,
-        });
-      }
-    });
-    editor.onDidChangeCursorSelection((e) => {
-      if (onCursorChange) {
-        const sel = e.selection;
-        onCursorChange({
-          position: { lineNumber: sel.positionLineNumber, column: sel.positionColumn },
-          selection: sel.isEmpty()
-            ? null
-            : {
-                startLineNumber: sel.startLineNumber,
-                startColumn: sel.startColumn,
-                endLineNumber: sel.endLineNumber,
-                endColumn: sel.endColumn,
-              },
-        });
-      }
-    });
-
-    if (onEditorMount) {
-      onEditorMount(editor, monaco);
-    }
   };
 
   useEffect(() => {

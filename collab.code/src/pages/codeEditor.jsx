@@ -171,7 +171,6 @@ function CodeEditor() {
   
   const [theme, setTheme] = useState("dark");
   const [fontSize] = useState(14);
-  const [cursorPos, setCursorPos] = useState({ ln: 1, col: 1 });
   const [showLangMenu, setShowLangMenu] = useState(false);
 
   const [sidebarWidth, setSidebarWidth] = useState(190);
@@ -191,7 +190,6 @@ function CodeEditor() {
 
   
   const [clients, setClients] = useState([]);
-  const [remoteCursors] = useState([]);
 
   const socketRef = useRef(null);
   const saveTimerRef = useRef(null);
@@ -490,11 +488,6 @@ function CodeEditor() {
     handleAddTreeFile(null);
   }, [handleAddTreeFile]);
 
-  const handleCursorChange = useCallback((data) => {
-    if (data?.position) {
-      setCursorPos({ ln: data.position.lineNumber, col: data.position.column });
-    }
-  }, []);
 
   const copyRoomId = async () => {
     try {
@@ -711,8 +704,6 @@ function CodeEditor() {
               theme={theme}
               fontSize={fontSize}
               onChange={handleCodeChange}
-              onCursorChange={handleCursorChange}
-              remoteCursors={remoteCursors}
               roomId={roomId}
               username={username}
             />
@@ -815,7 +806,7 @@ function CodeEditor() {
           {getLanguageById(activeFile.language)?.label || activeFile.language}
         </div>
         <div className="e-si">UTF-8</div>
-        <div className="e-si">Ln {cursorPos.ln}, Col {cursorPos.col}</div>
+        <div className="e-si">Y.js Sync</div>
         <div className="e-si e-si-ml">collab.code v1.0</div>
       </div>
     </div>

@@ -11,13 +11,11 @@ const LANG_LABELS = {
 
 function Home() {
   const navigate = useNavigate();
-  const [screen, setScreen] = useState("land"); // "land" | "join"
+  const [screen, setScreen] = useState("land"); 
   const [roomId, setRoomId] = useState("");
   const [username, setUsername] = useState("");
   const [lang, setLang] = useState("javascript");
   const [theme, setTheme] = useState("dark");
-
-  // Apply theme to <html> so CSS variables resolve on body/bg
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
@@ -41,13 +39,13 @@ function Home() {
   };
 
   return (
-    <div style={{ height: "100%", overflow: "hidden" }}>
+    <div style={{ height: "100%", overflowY: "auto", overflowX: "hidden" }}>
       {/* ── Theme toggle ── */}
       <div id="thm-toggle" onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}>
         <div className="thm-knob">{theme === "dark" ? "☽" : "☀"}</div>
       </div>
 
-      {/* ══════════ LANDING ══════════ */}
+    
       {screen === "land" && (
         <div id="land">
           <nav className="l-nav">
@@ -119,7 +117,7 @@ function Home() {
         </div>
       )}
 
-      {/* ══════════ JOIN ══════════ */}
+     
       {screen === "join" && (
         <div id="join">
           <nav className="j-nav">

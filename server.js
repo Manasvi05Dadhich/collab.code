@@ -48,17 +48,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    /* ── CODE-CHANGE: relay code to everyone else in the room ── */
-    socket.on('code-change', ({ roomId, code }) => {
-        socket.in(roomId).emit('code-change', { code });
-    });
 
-    /* ── SYNC-CODE: send current code to a specific new joiner ── */
-    socket.on('sync-code', ({ socketId, code }) => {
-        io.to(socketId).emit('code-change', { code });
-    });
-
-    /* ── DISCONNECT: notify others in the room ── */
     socket.on('disconnecting', () => {
         const rooms = [...socket.rooms];
         rooms.forEach((roomId) => {

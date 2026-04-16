@@ -485,7 +485,8 @@ body {
 .e-side {
   width: 190px; background: var(--wb-panel-2);
   border-right: 1px solid var(--wb-border);
-  flex-shrink: 0; display: flex; flex-direction: column; overflow-y: auto;
+  flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
+  align-self: stretch; min-height: 0;
 }
 .e-side-h { padding: 10px 12px 8px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--wb-text-dim); }
 .e-file {
