@@ -3,6 +3,8 @@ const app = express();
 const http = require('http');
 const { Server } = require('socket.io');
 const server = http.createServer(app);
+const WebSocket = require('ws');
+const { setupWSConnection } = require('y-websocket/bin/utils');
 
 const io = new Server(server, {
     cors: {
@@ -11,8 +13,13 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 5000;
+const wss = new WebSocket.Server({ port: 1234 });
 
-/* ── Helper: get all connected clients in a room ── */
+wss.on('connection', (ws, request) => {
+    setupWSConnection(ws, request);
+    console.log('Y.js client connected');
+});
+
 function getAllConnectedClients(roomId) {
     return Array.from(io.sockets.adapter.rooms.get(roomId) || []).map((socketId) => {
         return {
@@ -24,17 +31,14 @@ function getAllConnectedClients(roomId) {
 
 io.on('connection', (socket) => {
     console.log('socket connected', socket.id);
-
-    /* ── JOIN: user joins a room ── */
     socket.on('join', ({ roomId, username }) => {
-        socket.username = username;   // store on socket for later lookups
-        socket.roomId = roomId;       // store for disconnect cleanup
+        socket.username = username;
+        socket.roomId = roomId;     
         socket.join(roomId);
 
         const clients = getAllConnectedClients(roomId);
         console.log(`${username} joined room ${roomId} | clients: ${clients.length}`);
 
-        // Notify everyone in the room (including the new joiner)
         clients.forEach(({ socketId }) => {
             io.to(socketId).emit('joined', {
                 clients,

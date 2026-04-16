@@ -12,6 +12,9 @@ import {
 } from "../constants/languages";
 import { initSocket } from "../socket";
 import ACTIONS from "../constants/Actions";
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
+import { MonacoBinding } from 'y-monaco'
 
 const LANG_COLORS = {
   javascript: "#ff6b6b", typescript: "#69c0ff", python: "#b5f5a0",
@@ -153,7 +156,6 @@ function CodeEditor() {
 
   const initialFile = { id: "file-1", name: "main.js", language: "javascript", code: LANGUAGES[0].template };
 
-  /* Files */
   const [files, setFiles] = useState([initialFile]);
   const [activeFileId, setActiveFileId] = useState(initialFile.id);
   const [fileTree, setFileTree] = useState([
@@ -273,25 +275,12 @@ function CodeEditor() {
           }
 
           setClients(roomClients);
-          socketRef.current.emit(ACTIONS.SYNC_CODE, {
-            socketId,
-            code: activeFileRef.current?.code,
-          });
+          
         });
 
         socketRef.current.on(ACTIONS.DISCONNECTED, ({ socketId, username: leftUser }) => {
           toast(`${leftUser} left the room`, { icon: "👋" });
           setClients((prev) => prev.filter((client) => client.socketId !== socketId));
-        });
-
-        socketRef.current.on(ACTIONS.CODE_CHANGE, ({ code }) => {
-          if (code != null) {
-            setFiles((prev) =>
-              prev.map((file) => (
-                file.id === activeFileIdRef.current ? { ...file, code } : file
-              ))
-            );
-          }
         });
 
         socketRef.current.emit(ACTIONS.JOIN, {
@@ -314,7 +303,6 @@ function CodeEditor() {
         socketRef.current.off("error");
         socketRef.current.off(ACTIONS.JOINED);
         socketRef.current.off(ACTIONS.DISCONNECTED);
-        socketRef.current.off(ACTIONS.CODE_CHANGE);
         socketRef.current.disconnect();
       }
     };
@@ -325,9 +313,7 @@ function CodeEditor() {
       file.id === activeFileId ? { ...file, code: newCode } : file
     )));
 
-    if (socketRef.current) {
-      socketRef.current.emit(ACTIONS.CODE_CHANGE, { roomId, code: newCode });
-    }
+
 
     setSaveStatus("unsaved");
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -729,6 +715,7 @@ function CodeEditor() {
               onChange={handleCodeChange}
               onCursorChange={handleCursorChange}
               remoteCursors={remoteCursors}
+              roomId={roomId}
             />
           </div>
 

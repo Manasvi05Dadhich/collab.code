@@ -1,6 +1,8 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import MonacoEditor from "@monaco-editor/react";
-
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
+import { MonacoBinding } from 'y-monaco'
 function injectCursorStyles(cursors) {
   let styleEl = document.getElementById("remote-cursor-styles");
   if (!styleEl) {
@@ -8,7 +10,6 @@ function injectCursorStyles(cursors) {
     styleEl.id = "remote-cursor-styles";
     document.head.appendChild(styleEl);
   }
-
   const css = cursors
     .map(
       (cursor) => `
@@ -44,9 +45,6 @@ function injectCursorStyles(cursors) {
   styleEl.textContent = css;
 }
 
-/* ──────────────────────────────────────────────
- *  Editor Component
- * ────────────────────────────────────────────── */
 export default function Editor({
   filePath,
   code,
@@ -57,10 +55,12 @@ export default function Editor({
   onCursorChange,
   remoteCursors = [],
   onEditorMount,
+  roomId,
 }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const decorationsRef = useRef(null);
+  const [editorReady, setEditorReady] = useState(false);
 
   const handleBeforeMount = (monaco) => {
     monaco.editor.defineTheme("collab-dark", {
@@ -131,6 +131,7 @@ export default function Editor({
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    setEditorReady(true);
 
 
     editor.onDidChangeCursorPosition((e) => {
@@ -172,6 +173,21 @@ export default function Editor({
     }
   };
 
+  useEffect(() => {
+    if(!editorRef.current || !monacoRef.current) return;
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    const ydoc = new Y.Doc();
+    const provider = new WebsocketProvider('ws://localhost:1234', roomId, ydoc);
+    const ytext = ydoc.getText('monaco');
+    const binding = new MonacoBinding(ytext, editor.getModel(), new Set([editor]), provider.awareness);
+    return () => {
+      binding.destroy();
+      provider.disconnect();
+      ydoc.destroy();
+    };
+  }, [roomId, editorReady]);
+
 
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current || remoteCursors.length === 0)
@@ -179,12 +195,8 @@ export default function Editor({
 
     const editor = editorRef.current;
     const monaco = monacoRef.current;
-
-
     injectCursorStyles(remoteCursors);
-
     const decorations = [];
-
     remoteCursors.forEach((cursor) => {
       if (!cursor.position) return;
 
