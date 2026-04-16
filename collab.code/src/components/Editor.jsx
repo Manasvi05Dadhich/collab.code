@@ -3,6 +3,7 @@ import MonacoEditor from "@monaco-editor/react";
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import { MonacoBinding } from 'y-monaco'
+import CURSOR_COLORS  from '../constants/cursorColors';  
 function injectCursorStyles(cursors) {
   let styleEl = document.getElementById("remote-cursor-styles");
   if (!styleEl) {
@@ -56,10 +57,12 @@ export default function Editor({
   remoteCursors = [],
   onEditorMount,
   roomId,
+  username,
 }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const decorationsRef = useRef(null);
+  const providerRef = useRef(null);
   const [editorReady, setEditorReady] = useState(false);
 
   const handleBeforeMount = (monaco) => {
@@ -176,65 +179,87 @@ export default function Editor({
   useEffect(() => {
     if(!editorRef.current || !monacoRef.current) return;
     const editor = editorRef.current;
-    const monaco = monacoRef.current;
     const ydoc = new Y.Doc();
     const provider = new WebsocketProvider('ws://localhost:1234', roomId, ydoc);
+    providerRef.current = provider;
     const ytext = ydoc.getText('monaco');
     const binding = new MonacoBinding(ytext, editor.getModel(), new Set([editor]), provider.awareness);
+    const colorIndex = username.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % CURSOR_COLORS.length;
+    provider.awareness.setLocalStateField('user', {
+      name: username,
+      color: CURSOR_COLORS[colorIndex],
+    });
+
+    const injectAwarenessCursorStyles = () => {
+      let styleEl = document.getElementById('yjs-cursor-styles');
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'yjs-cursor-styles';
+        document.head.appendChild(styleEl);
+      }
+      let css = '';
+      provider.awareness.getStates().forEach((state, clientId) => {
+        if (clientId === provider.awareness.clientID) return;
+        const user = state.user;
+        if (!user) return;
+        const encodedColor = encodeURIComponent(user.color);
+        const cursorSvg = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='18' viewBox='0 0 16 18'%3E%3Cpath d='M1 1 L15 9 L8 9 L8 17 Z' fill='${encodedColor}' stroke='white' stroke-width='1' stroke-linejoin='round'/%3E%3C/svg%3E`;
+        css += `
+          .yRemoteSelectionHead-${clientId} {
+            border-left: none !important;
+            position: relative;
+          }
+          .yRemoteSelectionHead-${clientId}::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            width: 16px;
+            height: 20px;
+            background-image: url("${cursorSvg}");
+            background-size: contain;
+            background-repeat: no-repeat;
+            z-index: 101;
+            pointer-events: none;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+          }
+          .yRemoteSelectionHead-${clientId}::after {
+            content: '${user.name}';
+            position: absolute;
+            top: -1.5em;
+            left: 14px;
+            background: ${user.color};
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          }
+          .yRemoteSelection-${clientId} {
+            background-color: ${user.color}30 !important;
+          }
+        `;
+      });
+      styleEl.textContent = css;
+    };
+
+    provider.awareness.on('change', injectAwarenessCursorStyles);
+    injectAwarenessCursorStyles();
+
     return () => {
+      provider.awareness.off('change', injectAwarenessCursorStyles);
       binding.destroy();
       provider.disconnect();
       ydoc.destroy();
     };
-  }, [roomId, editorReady]);
+  }, [roomId, editorReady, username]);
 
 
-  useEffect(() => {
-    if (!editorRef.current || !monacoRef.current || remoteCursors.length === 0)
-      return;
-
-    const editor = editorRef.current;
-    const monaco = monacoRef.current;
-    injectCursorStyles(remoteCursors);
-    const decorations = [];
-    remoteCursors.forEach((cursor) => {
-      if (!cursor.position) return;
-
-      decorations.push({
-        range: new monaco.Range(
-          cursor.position.lineNumber,
-          cursor.position.column,
-          cursor.position.lineNumber,
-          cursor.position.column
-        ),
-        options: {
-          className: `remote-cursor-${cursor.id}`,
-          afterContentClassName: `remote-cursor-widget-${cursor.id}`,
-          stickiness: 1,
-        },
-      });
-
-      if (cursor.selection) {
-        decorations.push({
-          range: new monaco.Range(
-            cursor.selection.startLineNumber,
-            cursor.selection.startColumn,
-            cursor.selection.endLineNumber,
-            cursor.selection.endColumn
-          ),
-          options: {
-            className: `remote-selection-${cursor.id}`,
-            stickiness: 1,
-          },
-        });
-      }
-    });
-
-    if (decorationsRef.current) {
-      decorationsRef.current.clear();
-    }
-    decorationsRef.current = editor.createDecorationsCollection(decorations);
-  }, [remoteCursors]);
 
   return (
     <div className="EditorContainer">

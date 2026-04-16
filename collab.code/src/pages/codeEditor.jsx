@@ -168,17 +168,16 @@ function CodeEditor() {
     },
   ]);
 
-  /* UI */
+  
   const [theme, setTheme] = useState("dark");
   const [fontSize] = useState(14);
   const [cursorPos, setCursorPos] = useState({ ln: 1, col: 1 });
   const [showLangMenu, setShowLangMenu] = useState(false);
 
-  /* Layout (resizable) */
   const [sidebarWidth, setSidebarWidth] = useState(190);
   const [terminalHeight, setTerminalHeight] = useState(200);
 
-  /* Output / run */
+
   const [output, setOutput] = useState([
     { type: "dim", text: "// collab.code terminal", timestamp: 0 },
     { type: "ok", text: "session synced", timestamp: 1 },
@@ -190,11 +189,10 @@ function CodeEditor() {
   const [isRunning, setIsRunning] = useState(false);
   const [saveStatus, setSaveStatus] = useState("saved");
 
-  /* Collab */
+  
   const [clients, setClients] = useState([]);
   const [remoteCursors] = useState([]);
 
-  /* Refs */
   const socketRef = useRef(null);
   const saveTimerRef = useRef(null);
   const activeFileRef = useRef(null);
@@ -306,7 +304,7 @@ function CodeEditor() {
         socketRef.current.disconnect();
       }
     };
-  }, []); // eslint-disable-line
+  }, []); 
 
   const handleCodeChange = useCallback((newCode) => {
     setFiles((prev) => prev.map((file) => (
@@ -716,6 +714,7 @@ function CodeEditor() {
               onCursorChange={handleCursorChange}
               remoteCursors={remoteCursors}
               roomId={roomId}
+              username={username}
             />
           </div>
 
