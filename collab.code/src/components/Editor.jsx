@@ -27,7 +27,7 @@ function injectCursorStyles(cursors) {
       border-radius: 3px 3px 3px 0;
       font-size: 11px;
       font-weight: 600;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
       white-space: nowrap;
       pointer-events: none;
       z-index: 100;
@@ -238,8 +238,10 @@ export default function Editor({
         options={{
           fontSize,
           fontFamily:
-            "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+            "'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
           fontLigatures: true,
+          lineHeight: 24,
+          fontWeight: "500",
           minimap: { enabled: true, scale: 2 },
           scrollBeyondLastLine: false,
           smoothScrolling: true,

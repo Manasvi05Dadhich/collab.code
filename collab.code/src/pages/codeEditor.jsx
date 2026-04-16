@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate, Navigate } from "react-router-dom"
 import toast from "react-hot-toast";
 import Client from "../components/Client";
 import Editor from "../components/Editor";
+import FileTree from "../components/FileTree";
 import {
   LANGUAGES,
   getLanguageById,
@@ -16,103 +17,241 @@ const LANG_COLORS = {
   javascript: "#ff6b6b", typescript: "#69c0ff", python: "#b5f5a0",
   rust: "#ffd666", go: "#69d2e7", cpp: "#ffb347", css: "#c0a0ff", html: "#ffd666",
 };
-const COLLAB_COLORS = ["#2997ff","#ff6b6b","#30d158","#ffd666","#c0a0ff","#ffb347","#69c0ff","#ff9f0a"];
+const COLLAB_COLORS = ["#2997ff", "#ff6b6b", "#30d158", "#ffd666", "#c0a0ff", "#ffb347", "#69c0ff", "#ff9f0a"];
 
 let fileCounter = 1;
+let folderCounter = 1;
+
+function createFileRecord(id, name) {
+  const safeName = name || `untitled-${fileCounter}.js`;
+  const ext = getExtFromFilename(safeName);
+  const language = ext ? getLanguageByExt(ext)?.id || "javascript" : "javascript";
+
+  return {
+    id,
+    name: safeName,
+    language,
+    code: getLanguageById(language)?.template || "",
+  };
+}
+
+function createFileNode(file) {
+  return {
+    id: file.id,
+    type: "file",
+    name: file.name,
+    language: file.language,
+  };
+}
+
+function createFolderNode(name) {
+  return {
+    id: `folder-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    type: "folder",
+    name: name || `folder-${folderCounter}`,
+    expanded: true,
+    children: [],
+  };
+}
+
+function updateTree(nodes, nodeId, updater) {
+  return nodes.map((node) => {
+    if (node.id === nodeId) {
+      return updater(node);
+    }
+
+    if (node.type === "folder") {
+      return {
+        ...node,
+        children: updateTree(node.children, nodeId, updater),
+      };
+    }
+
+    return node;
+  });
+}
+
+function addNodeToTree(nodes, parentId, newNode) {
+  if (!parentId) {
+    return [...nodes, newNode];
+  }
+
+  return nodes.map((node) => {
+    if (node.id === parentId && node.type === "folder") {
+      return {
+        ...node,
+        expanded: true,
+        children: [...node.children, newNode],
+      };
+    }
+
+    if (node.type === "folder") {
+      return {
+        ...node,
+        children: addNodeToTree(node.children, parentId, newNode),
+      };
+    }
+
+    return node;
+  });
+}
+
+function removeNodeFromTree(nodes, nodeId) {
+  const removedIds = [];
+
+  const collectIds = (node) => {
+    removedIds.push(node.id);
+    if (node.type === "folder") {
+      node.children.forEach(collectIds);
+    }
+  };
+
+  const nextNodes = [];
+
+  nodes.forEach((node) => {
+    if (node.id === nodeId) {
+      collectIds(node);
+      return;
+    }
+
+    if (node.type === "folder") {
+      const childResult = removeNodeFromTree(node.children, nodeId);
+      removedIds.push(...childResult.removedIds);
+      nextNodes.push({
+        ...node,
+        children: childResult.nodes,
+      });
+      return;
+    }
+
+    nextNodes.push(node);
+  });
+
+  return { nodes: nextNodes, removedIds };
+}
+
+function findFirstFileId(nodes) {
+  for (const node of nodes) {
+    if (node.type === "file") {
+      return node.id;
+    }
+
+    const childId = findFirstFileId(node.children);
+    if (childId) {
+      return childId;
+    }
+  }
+
+  return null;
+}
 
 function CodeEditor() {
   const { roomId } = useParams();
-  const location   = useLocation();
-  const navigate   = useNavigate();
-  const username   = location.state?.username || "Anonymous";
+  const location = useLocation();
+  const navigate = useNavigate();
+  const username = location.state?.username || "Anonymous";
 
-  /* ── Files ── */
-  const [files, setFiles] = useState([
-    { id: "file-1", name: "main.js", language: "javascript", code: LANGUAGES[0].template },
+  const initialFile = { id: "file-1", name: "main.js", language: "javascript", code: LANGUAGES[0].template };
+
+  /* Files */
+  const [files, setFiles] = useState([initialFile]);
+  const [activeFileId, setActiveFileId] = useState(initialFile.id);
+  const [fileTree, setFileTree] = useState([
+    {
+      id: "folder-src",
+      type: "folder",
+      name: "src",
+      expanded: true,
+      children: [createFileNode(initialFile)],
+    },
   ]);
-  const [activeFileId, setActiveFileId] = useState("file-1");
-  const [renamingId, setRenamingId]     = useState(null);
-  const [renameVal,  setRenameVal]      = useState("");
 
-  /* ── UI ── */
-  const [theme, setTheme]       = useState("dark");
-  const [fontSize]              = useState(14);
+  /* UI */
+  const [theme, setTheme] = useState("dark");
+  const [fontSize] = useState(14);
   const [cursorPos, setCursorPos] = useState({ ln: 1, col: 1 });
   const [showLangMenu, setShowLangMenu] = useState(false);
 
-  /* ── Layout (resizable) ── */
-  const [sidebarWidth,    setSidebarWidth]    = useState(190);
-  const [terminalHeight,  setTerminalHeight]  = useState(200);
+  /* Layout (resizable) */
+  const [sidebarWidth, setSidebarWidth] = useState(190);
+  const [terminalHeight, setTerminalHeight] = useState(200);
 
-  /* ── Output / run ── */
-  const [output, setOutput]   = useState([
+  /* Output / run */
+  const [output, setOutput] = useState([
     { type: "dim", text: "// collab.code terminal", timestamp: 0 },
-    { type: "ok",  text: "✓ session synced",        timestamp: 1 },
+    { type: "ok", text: "session synced", timestamp: 1 },
   ]);
   const [consoleLog, setConsoleLog] = useState([
     { type: "dim", text: "// browser console", timestamp: 0 },
   ]);
-  const [terminalTab, setTerminalTab] = useState("output"); // "output" | "console"
+  const [terminalTab, setTerminalTab] = useState("output");
   const [isRunning, setIsRunning] = useState(false);
   const [saveStatus, setSaveStatus] = useState("saved");
 
-  /* ── Collab ── */
+  /* Collab */
   const [clients, setClients] = useState([]);
   const [remoteCursors] = useState([]);
 
-  /* ── Refs ── */
-  const socketRef       = useRef(null);
-  const saveTimerRef    = useRef(null);
-  const activeFileRef   = useRef(null);
+  /* Refs */
+  const socketRef = useRef(null);
+  const saveTimerRef = useRef(null);
+  const activeFileRef = useRef(null);
   const activeFileIdRef = useRef(activeFileId);
-  const langMenuRef     = useRef(null);
-  const langBtnRef      = useRef(null);   // for fixed-position dropdown coords
-  const isDraggingX     = useRef(false);
-  const isDraggingY     = useRef(false);
+  const langMenuRef = useRef(null);
+  const langBtnRef = useRef(null);
+  const langDropRef = useRef(null);
+  const isDraggingX = useRef(false);
+  const isDraggingY = useRef(false);
   const [langMenuPos, setLangMenuPos] = useState({ top: 0, left: 0 });
 
-  /* ── Apply theme to <html> ── */
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  /* ── Keep refs in sync ── */
-  useEffect(() => { activeFileRef.current = activeFile; });           // eslint-disable-line
-  useEffect(() => { activeFileIdRef.current = activeFileId; }, [activeFileId]);
+  const activeFile = files.find((file) => file.id === activeFileId) || files[0];
 
-  /* ── Resize via mouse drag ── */
+  useEffect(() => {
+    activeFileRef.current = activeFile;
+  });
+
+  useEffect(() => {
+    activeFileIdRef.current = activeFileId;
+  }, [activeFileId]);
+
   useEffect(() => {
     const onMove = (e) => {
       if (isDraggingX.current) {
-        // 40px = activity bar width
         setSidebarWidth(Math.max(120, Math.min(500, e.clientX - 40)));
       }
+
       if (isDraggingY.current) {
         const editorEl = document.getElementById("editor");
         if (editorEl) {
-          const bottom    = editorEl.getBoundingClientRect().bottom;
-          const newHeight = bottom - e.clientY - 22; // 22 = status bar
+          const bottom = editorEl.getBoundingClientRect().bottom;
+          const newHeight = bottom - e.clientY - 22;
           setTerminalHeight(Math.max(60, Math.min(600, newHeight)));
         }
       }
     };
+
     const onUp = () => {
       if (isDraggingX.current || isDraggingY.current) {
         isDraggingX.current = false;
         isDraggingY.current = false;
-        document.body.style.cursor     = "";
+        document.body.style.cursor = "";
         document.body.style.userSelect = "";
       }
     };
+
     document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup",   onUp);
+    document.addEventListener("mouseup", onUp);
+
     return () => {
       document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup",   onUp);
+      document.removeEventListener("mouseup", onUp);
     };
   }, []);
 
-  /* ── Socket.IO ── */
   useEffect(() => {
     const init = async () => {
       try {
@@ -123,14 +262,16 @@ function CodeEditor() {
           toast.error("Connection failed. Redirecting...");
           navigate("/");
         };
-        socketRef.current.on("connect_error",   handleError);
+
+        socketRef.current.on("connect_error", handleError);
         socketRef.current.on("connect_timeout", handleError);
-        socketRef.current.on("error",           handleError);
+        socketRef.current.on("error", handleError);
 
         socketRef.current.on(ACTIONS.JOINED, ({ clients: roomClients, username: joinedUser, socketId }) => {
           if (joinedUser !== location.state?.username) {
             toast.success(`${joinedUser} joined the room`);
           }
+
           setClients(roomClients);
           socketRef.current.emit(ACTIONS.SYNC_CODE, {
             socketId,
@@ -140,13 +281,15 @@ function CodeEditor() {
 
         socketRef.current.on(ACTIONS.DISCONNECTED, ({ socketId, username: leftUser }) => {
           toast(`${leftUser} left the room`, { icon: "👋" });
-          setClients(prev => prev.filter(c => c.socketId !== socketId));
+          setClients((prev) => prev.filter((client) => client.socketId !== socketId));
         });
 
         socketRef.current.on(ACTIONS.CODE_CHANGE, ({ code }) => {
           if (code != null) {
-            setFiles(prev =>
-              prev.map(f => f.id === activeFileIdRef.current ? { ...f, code } : f)
+            setFiles((prev) =>
+              prev.map((file) => (
+                file.id === activeFileIdRef.current ? { ...file, code } : file
+              ))
             );
           }
         });
@@ -177,14 +320,15 @@ function CodeEditor() {
     };
   }, []); // eslint-disable-line
 
-  const activeFile = files.find(f => f.id === activeFileId) || files[0];
-
-  /* ── Handlers ── */
   const handleCodeChange = useCallback((newCode) => {
-    setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, code: newCode } : f));
+    setFiles((prev) => prev.map((file) => (
+      file.id === activeFileId ? { ...file, code: newCode } : file
+    )));
+
     if (socketRef.current) {
       socketRef.current.emit(ACTIONS.CODE_CHANGE, { roomId, code: newCode });
     }
+
     setSaveStatus("unsaved");
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
@@ -194,114 +338,238 @@ function CodeEditor() {
   }, [activeFileId, roomId]);
 
   const handleLanguageChange = useCallback((langId) => {
-    setFiles(prev => prev.map(f => {
-      if (f.id !== activeFileId) return f;
+    setFiles((prev) => prev.map((file) => {
+      if (file.id !== activeFileId) return file;
+
       const lang = getLanguageById(langId);
-      const ext  = lang?.ext || "txt";
-      const base = f.name.includes(".") ? f.name.split(".").slice(0, -1).join(".") : f.name;
-      return { ...f, language: langId, name: `${base}.${ext}`, code: lang?.template || "" };
+      const ext = lang?.ext || "txt";
+      const base = file.name.includes(".") ? file.name.split(".").slice(0, -1).join(".") : file.name;
+
+      return {
+        ...file,
+        language: langId,
+        name: `${base}.${ext}`,
+        code: lang?.template || "",
+      };
     }));
+
+    setFileTree((prev) =>
+      updateTree(prev, activeFileId, (node) => (
+        node.type === "file"
+          ? {
+              ...node,
+              language: langId,
+              name: `${node.name.includes(".") ? node.name.split(".").slice(0, -1).join(".") : node.name}.${getLanguageById(langId)?.ext || "txt"}`,
+            }
+          : node
+      ))
+    );
+
     setShowLangMenu(false);
   }, [activeFileId]);
 
   const handleRun = useCallback(() => {
     setIsRunning(true);
+
     setTimeout(() => {
       const { code, language } = activeFile;
-      const ts = Date.now();
-      // Always log to console tab too
-      setConsoleLog(prev => [...prev, { type: "dim", text: `▶ Run at ${new Date(ts).toLocaleTimeString()}`, timestamp: ts }]);
+      const timestamp = Date.now();
+
+      setConsoleLog((prev) => [
+        ...prev,
+        { type: "dim", text: `Run at ${new Date(timestamp).toLocaleTimeString()}`, timestamp },
+      ]);
+
       if (language === "javascript" || language === "typescript") {
         const results = executeJavaScript(code);
-        setOutput(prev => [...prev, ...results]);
-        setConsoleLog(prev => [...prev, ...results]);
+        setOutput((prev) => [...prev, ...results]);
+        setConsoleLog((prev) => [...prev, ...results]);
       } else {
         const label = getLanguageById(language)?.label || language;
-        const msg = { type: "system", text: `⚡ Connect a backend to run ${label}. JS & TS run locally.`, timestamp: Date.now() };
-        setOutput(prev => [...prev, msg]);
-        setConsoleLog(prev => [...prev, msg]);
+        const message = {
+          type: "system",
+          text: `Connect a backend to run ${label}. JS and TS run locally.`,
+          timestamp: Date.now(),
+        };
+        setOutput((prev) => [...prev, message]);
+        setConsoleLog((prev) => [...prev, message]);
       }
+
       setIsRunning(false);
     }, 300);
   }, [activeFile]);
 
-  const handleAddFile = useCallback(() => {
+  const handleAddTreeFile = useCallback((parentId = null) => {
     fileCounter++;
-    const f = {
-      id: `file-${Date.now()}`,
-      name: `untitled-${fileCounter}.js`,
-      language: "javascript",
-      code: getLanguageById("javascript").template,
-    };
-    setFiles(prev => [...prev, f]);
-    setActiveFileId(f.id);
+    const file = createFileRecord(`file-${Date.now()}`);
+    setFiles((prev) => [...prev, file]);
+    setFileTree((prev) => addNodeToTree(prev, parentId, createFileNode(file)));
+    setActiveFileId(file.id);
   }, []);
 
-  const handleCloseFile = useCallback((fileId) => {
-    setFiles(prev => {
-      const next = prev.filter(f => f.id !== fileId);
-      if (fileId === activeFileId && next.length > 0) setActiveFileId(next[next.length - 1].id);
-      return next.length ? next : prev;
-    });
-  }, [activeFileId]);
+  const handleAddFolder = useCallback((parentId = null) => {
+    folderCounter++;
+    setFileTree((prev) => addNodeToTree(prev, parentId, createFolderNode()));
+  }, []);
+
+  const handleToggleFolder = useCallback((folderId) => {
+    setFileTree((prev) =>
+      updateTree(prev, folderId, (node) => (
+        node.type === "folder" ? { ...node, expanded: !node.expanded } : node
+      ))
+    );
+  }, []);
 
   const handleRenameFile = useCallback((fileId, newName) => {
-    setFiles(prev => prev.map(f => {
-      if (f.id !== fileId) return f;
-      const ext  = getExtFromFilename(newName);
+    const trimmedName = newName.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    setFiles((prev) => prev.map((file) => {
+      if (file.id !== fileId) return file;
+
+      const ext = getExtFromFilename(trimmedName);
       const lang = ext ? getLanguageByExt(ext) : null;
-      return { ...f, name: newName, language: lang?.id || f.language };
+
+      return {
+        ...file,
+        name: trimmedName,
+        language: lang?.id || file.language,
+      };
     }));
+
+    setFileTree((prev) =>
+      updateTree(prev, fileId, (node) => {
+        if (node.type !== "file") {
+          return node;
+        }
+
+        const ext = getExtFromFilename(trimmedName);
+        const lang = ext ? getLanguageByExt(ext) : null;
+
+        return {
+          ...node,
+          name: trimmedName,
+          language: lang?.id || node.language,
+        };
+      })
+    );
   }, []);
 
+  const handleRenameNode = useCallback((nodeId, newName) => {
+    const trimmedName = newName.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    const fileMatch = files.find((file) => file.id === nodeId);
+    if (fileMatch) {
+      handleRenameFile(nodeId, trimmedName);
+      return;
+    }
+
+    setFileTree((prev) =>
+      updateTree(prev, nodeId, (node) => (
+        node.type === "folder" ? { ...node, name: trimmedName } : node
+      ))
+    );
+  }, [files, handleRenameFile]);
+
+  const handleDeleteNode = useCallback((nodeId) => {
+    setFileTree((prevTree) => {
+      const result = removeNodeFromTree(prevTree, nodeId);
+      const removedIds = new Set(result.removedIds);
+      let nextFiles = files.filter((file) => !removedIds.has(file.id));
+      let nextTree = result.nodes;
+
+      if (nextFiles.length === 0) {
+        fileCounter++;
+        const fallbackFile = createFileRecord(`file-${Date.now()}`, "main.js");
+        nextFiles = [fallbackFile];
+        nextTree = [createFileNode(fallbackFile)];
+        setActiveFileId(fallbackFile.id);
+      } else if (removedIds.has(activeFileId)) {
+        setActiveFileId(findFirstFileId(nextTree) || nextFiles[0].id);
+      }
+
+      setFiles(nextFiles);
+      return nextTree;
+    });
+  }, [activeFileId, files]);
+
+  const handleCloseFile = useCallback((fileId) => {
+    handleDeleteNode(fileId);
+  }, [handleDeleteNode]);
+
+  const handleAddFile = useCallback(() => {
+    handleAddTreeFile(null);
+  }, [handleAddTreeFile]);
+
   const handleCursorChange = useCallback((data) => {
-    if (data?.position) setCursorPos({ ln: data.position.lineNumber, col: data.position.column });
+    if (data?.position) {
+      setCursorPos({ ln: data.position.lineNumber, col: data.position.column });
+    }
   }, []);
 
   const copyRoomId = async () => {
-    try { await navigator.clipboard.writeText(roomId); toast.success("Room ID copied!"); }
-    catch { toast.error("Failed to copy Room ID"); }
+    try {
+      await navigator.clipboard.writeText(roomId);
+      toast.success("Room ID copied!");
+    } catch {
+      toast.error("Failed to copy Room ID");
+    }
   };
 
-  const leaveRoom = () => { navigate("/"); toast.success("Left the room"); };
+  const leaveRoom = () => {
+    navigate("/");
+    toast.success("Left the room");
+  };
 
-  /* ── Click-outside for lang menu ── */
   useEffect(() => {
-    const h = (e) => {
-      if (langMenuRef.current && !langMenuRef.current.contains(e.target)) {
+    const handler = (e) => {
+      const inButton = langMenuRef.current?.contains(e.target);
+      const inDropdown = langDropRef.current?.contains(e.target);
+      if (!inButton && !inDropdown) {
         setShowLangMenu(false);
       }
     };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  /* ── Keyboard shortcuts (capture phase — runs before Monaco) ── */
   useEffect(() => {
     const onKey = (e) => {
-      if (e.ctrlKey && e.key === "Enter") { e.preventDefault(); handleRun(); }
+      if (e.ctrlKey && e.key === "Enter") {
+        e.preventDefault();
+        handleRun();
+      }
+
       if (e.ctrlKey && e.key === "s") {
         e.preventDefault();
         setSaveStatus("saving");
         setTimeout(() => setSaveStatus("saved"), 400);
         toast.success("Saved!", { duration: 1500 });
       }
-      if (e.ctrlKey && e.key === "n") { e.preventDefault(); handleAddFile(); }
+
+      if (e.ctrlKey && e.key === "n") {
+        e.preventDefault();
+        handleAddFile();
+      }
     };
+
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [handleRun, handleAddFile]);
 
-  /* ── Guard ── */
   if (!location.state) return <Navigate to="/" />;
+  if (!activeFile) return null;
 
   const langColor = LANG_COLORS[activeFile.language] || "#a1a1a6";
 
-  /* ─── RENDER ──────────────────────────────────── */
   return (
     <div id="editor" data-theme={theme}>
-
-      {/* ── Title bar ── */}
       <div className="e-titlebar">
         <div className="e-tl">
           <div className="e-traffic">
@@ -317,7 +585,6 @@ function CodeEditor() {
         </div>
 
         <div className="e-tr">
-          {/* Language selector — dropdown uses position:fixed to escape backdrop-filter stacking context */}
           <div ref={langMenuRef} style={{ position: "relative" }}>
             <button
               ref={langBtnRef}
@@ -327,7 +594,7 @@ function CodeEditor() {
                 if (rect) {
                   setLangMenuPos({ top: rect.bottom + 6, left: rect.left });
                 }
-                setShowLangMenu(v => !v);
+                setShowLangMenu((value) => !value);
               }}
             >
               <div className="e-lang-dot" style={{ background: langColor }} />
@@ -337,29 +604,31 @@ function CodeEditor() {
           </div>
 
           <div className="e-avs">
-            {clients.slice(0, 5).map((c, i) => (
-              <div key={c.socketId} className="e-av"
-                style={{ background: COLLAB_COLORS[i % COLLAB_COLORS.length] }}
-                title={c.username}
+            {clients.slice(0, 5).map((client, index) => (
+              <div
+                key={client.socketId}
+                className="e-av"
+                style={{ background: COLLAB_COLORS[index % COLLAB_COLORS.length] }}
+                title={client.username}
               >
-                {c.username?.[0]?.toUpperCase()}
+                {client.username?.[0]?.toUpperCase()}
               </div>
             ))}
           </div>
           <button className="e-tbtn" onClick={copyRoomId}>Copy ID</button>
           <button className="e-tbtn run" onClick={handleRun} disabled={isRunning}>
-            {isRunning ? "⏳" : "▶ Run"}
+            {isRunning ? "Running" : "Run"}
           </button>
-          <button className="e-tbtn" onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}>
-            {theme === "dark" ? "☀" : "☽"}
+          <button className="e-tbtn" onClick={() => setTheme((value) => value === "dark" ? "light" : "dark")}>
+            {theme === "dark" ? "Light" : "Dark"}
           </button>
           <button className="e-tbtn" onClick={leaveRoom}>Leave</button>
         </div>
       </div>
 
-      {/* Language dropdown rendered at body level via fixed position — no stacking context issues */}
       {showLangMenu && (
         <div
+          ref={langDropRef}
           style={{
             position: "fixed",
             top: langMenuPos.top,
@@ -373,106 +642,82 @@ function CodeEditor() {
             zIndex: 99999,
           }}
         >
-          {LANGUAGES.map(l => (
+          {LANGUAGES.map((language) => (
             <div
-              key={l.id}
-              className={`e-lm-item${l.id === activeFile.language ? " on" : ""}`}
-              onClick={() => handleLanguageChange(l.id)}
+              key={language.id}
+              className={`e-lm-item${language.id === activeFile.language ? " on" : ""}`}
+              onClick={() => handleLanguageChange(language.id)}
             >
-              <div className="e-lm-dot" style={{ background: LANG_COLORS[l.id] || "#a1a1a6" }} />
-              {l.label}
+              <div className="e-lm-dot" style={{ background: LANG_COLORS[language.id] || "#a1a1a6" }} />
+              {language.label}
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Body ── */}
       <div className="e-body">
-
-        {/* Activity bar */}
         <div className="e-act">
-          <div className="e-act-i on">📁<span className="e-tip">Explorer</span></div>
-          <div className="e-act-i">🔍<span className="e-tip">Search</span></div>
-          <div className="e-act-i">🌿<span className="e-tip">Source Control</span></div>
-          <div className="e-act-i" style={{ marginTop: "auto" }}>⚙️<span className="e-tip">Settings</span></div>
+          <div className="e-act-i on">EX<span className="e-tip">Explorer</span></div>
+          <div className="e-act-i">SR<span className="e-tip">Search</span></div>
+          <div className="e-act-i">SC<span className="e-tip">Source Control</span></div>
+          <div className="e-act-i" style={{ marginTop: "auto" }}>ST<span className="e-tip">Settings</span></div>
         </div>
 
-        {/* ── Sidebar (resizable) ── */}
         <div className="e-side" style={{ width: sidebarWidth, minWidth: 0 }}>
-          <div className="e-side-h">Explorer</div>
-          {files.map(f => {
-            const ext        = f.name.split(".").pop();
-            const col        = LANG_COLORS[f.language] || "#a1a1a6";
-            const isRenaming = renamingId === f.id;
-            return (
-              <div
-                key={f.id}
-                className={`e-file${f.id === activeFileId ? " on" : ""}`}
-                onClick={() => setActiveFileId(f.id)}
-                onDoubleClick={() => { setRenamingId(f.id); setRenameVal(f.name); }}
-                title="Double-click to rename"
-              >
-                <span className="e-ext" style={{ background: col + "22", color: col }}>{ext}</span>
-                {isRenaming ? (
-                  <input
-                    autoFocus
-                    style={{
-                      background: "var(--bg4)", border: "1px solid var(--acc)",
-                      borderRadius: 4, color: "var(--text)", fontSize: 11,
-                      padding: "1px 4px", width: "100%", outline: "none",
-                      fontFamily: "'DM Mono', monospace",
-                    }}
-                    value={renameVal}
-                    onChange={e => setRenameVal(e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                    onKeyDown={e => {
-                      if (e.key === "Enter")  { handleRenameFile(f.id, renameVal || f.name); setRenamingId(null); }
-                      if (e.key === "Escape")   setRenamingId(null);
-                    }}
-                    onBlur={() => { handleRenameFile(f.id, renameVal || f.name); setRenamingId(null); }}
-                  />
-                ) : f.name}
-              </div>
-            );
-          })}
+          <FileTree
+            tree={fileTree}
+            activeFileId={activeFileId}
+            onSelectFile={setActiveFileId}
+            onToggleFolder={handleToggleFolder}
+            onRenameNode={handleRenameNode}
+            onDeleteNode={handleDeleteNode}
+            onAddFile={handleAddTreeFile}
+            onAddFolder={handleAddFolder}
+          />
         </div>
 
-        {/* Sidebar ↔ editor drag handle */}
         <div
           className="e-resize-x"
           onMouseDown={() => {
             isDraggingX.current = true;
-            document.body.style.cursor     = "col-resize";
+            document.body.style.cursor = "col-resize";
             document.body.style.userSelect = "none";
           }}
         />
 
-        {/* ── Code area: editor on top, terminal on bottom ── */}
         <div className="e-code-area">
-
-          {/* File tabs */}
           <div className="e-tabs">
-            {files.map(f => (
+            {files.map((file) => (
               <div
-                key={f.id}
-                className={`e-tab${f.id === activeFileId ? " on" : ""}`}
-                onClick={() => setActiveFileId(f.id)}
+                key={file.id}
+                className={`e-tab${file.id === activeFileId ? " on" : ""}`}
+                onClick={() => setActiveFileId(file.id)}
               >
-                {f.name}
+                {file.name}
                 {files.length > 1 && (
-                  <button className="e-tab-close"
-                    onClick={e => { e.stopPropagation(); handleCloseFile(f.id); }}
+                  <button
+                    className="e-tab-close"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCloseFile(file.id);
+                    }}
                     title="Close"
-                  >×</button>
+                  >
+                    ×
+                  </button>
                 )}
               </div>
             ))}
-            <div className="e-tab" onClick={handleAddFile} title="New file (Ctrl+N)"
-              style={{ color:"var(--text3)", paddingLeft:12, paddingRight:12 }}
-            >+</div>
+            <div
+              className="e-tab"
+              onClick={handleAddFile}
+              title="New file (Ctrl+N)"
+              style={{ color: "var(--text3)", paddingLeft: 12, paddingRight: 12 }}
+            >
+              +
+            </div>
           </div>
 
-          {/* Monaco editor */}
           <div className="e-wrap" style={{ position: "relative" }}>
             <div className="e-amb" />
             <Editor
@@ -487,65 +732,77 @@ function CodeEditor() {
             />
           </div>
 
-          {/* Editor ↕ terminal drag handle */}
           <div
             className="e-resize-y"
             onMouseDown={() => {
               isDraggingY.current = true;
-              document.body.style.cursor     = "row-resize";
+              document.body.style.cursor = "row-resize";
               document.body.style.userSelect = "none";
             }}
           />
 
-          {/* Terminal / Output — bottom panel like VS Code */}
           <div className="e-terminal" style={{ height: terminalHeight }}>
             <div className="e-terminal-h">
               <div
                 className={`e-terminal-tab${terminalTab === "output" ? " on" : ""}`}
                 onClick={() => setTerminalTab("output")}
-              >Output</div>
+              >
+                Output
+              </div>
               <div
                 className={`e-terminal-tab${terminalTab === "console" ? " on" : ""}`}
                 onClick={() => setTerminalTab("console")}
-              >Console</div>
-              <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{
-                  fontSize:10, fontFamily:"'DM Mono',monospace",
-                  color:"var(--green)", animation:"pulse 2s infinite",
-                }}>● live</span>
-                <button className="e-tbtn" style={{ height:20, fontSize:10, padding:"0 8px" }}
+              >
+                Console
+              </div>
+              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontFamily: "'DM Mono', monospace",
+                    color: "var(--green)",
+                    animation: "pulse 2s infinite",
+                  }}
+                >
+                  live
+                </span>
+                <button
+                  className="e-tbtn"
+                  style={{ height: 20, fontSize: 10, padding: "0 8px" }}
                   onClick={() => {
                     if (terminalTab === "output") setOutput([]);
                     else setConsoleLog([]);
-                  }}>Clear</button>
+                  }}
+                >
+                  Clear
+                </button>
               </div>
             </div>
             <div className="e-terminal-body">
-              {(terminalTab === "output" ? output : consoleLog).map((item, i) => (
-                <div key={`${item.timestamp}-${i}`} className={`ol ${item.type}`}>
+              {(terminalTab === "output" ? output : consoleLog).map((item, index) => (
+                <div key={`${item.timestamp}-${index}`} className={`ol ${item.type}`}>
                   {item.text}
                 </div>
               ))}
-              {isRunning && terminalTab === "output" && <div className="ol hi">→ running<span className="blk" /></div>}
+              {isRunning && terminalTab === "output" && <div className="ol hi">running<span className="blk" /></div>}
             </div>
           </div>
         </div>
 
-        {/* ── Right collab panel ── */}
         <div className="e-rp">
           <div className="e-rp-h"><span>Collaborators</span></div>
           <div className="e-rp-body">
             <div className="e-ch">In session</div>
-            {clients.map((c, i) => (
+            {clients.map((client, index) => (
               <Client
-                key={c.socketId}
-                username={c.username}
-                color={COLLAB_COLORS[i % COLLAB_COLORS.length]}
-                isYou={c.username === username}
+                key={client.socketId}
+                username={client.username}
+                color={COLLAB_COLORS[index % COLLAB_COLORS.length]}
+                isYou={client.username === username}
               />
             ))}
             {clients.length === 0 && (
-              <div style={{ fontSize:11, color:"var(--text3)", fontFamily:"'DM Mono',monospace" }}>
+              <div style={{ fontSize: 11, color: "var(--text3)", fontFamily: "'DM Mono', monospace" }}>
                 Connecting...
               </div>
             )}
@@ -553,65 +810,74 @@ function CodeEditor() {
         </div>
       </div>
 
-      {/* ── Status bar ── */}
       <div className="e-status">
         <div className="e-si">
-          ● {saveStatus === "saved" ? "saved" : saveStatus === "saving" ? "saving…" : "unsaved"}
+          {saveStatus === "saved" ? "saved" : saveStatus === "saving" ? "saving..." : "unsaved"}
         </div>
         <div className="e-si" style={{ color: "#fff" }}>
-          <span style={{
-            width: 7, height: 7, borderRadius: "50%",
-            background: langColor, display: "inline-block", marginRight: 5, flexShrink: 0,
-          }} />
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: langColor,
+              display: "inline-block",
+              marginRight: 5,
+              flexShrink: 0,
+            }}
+          />
           {getLanguageById(activeFile.language)?.label || activeFile.language}
         </div>
         <div className="e-si">UTF-8</div>
         <div className="e-si">Ln {cursorPos.ln}, Col {cursorPos.col}</div>
-        <div className="e-si e-si-ml">collab.code · v1.0</div>
+        <div className="e-si e-si-ml">collab.code v1.0</div>
       </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════
- *  JavaScript execution engine (browser sandbox)
- * ═══════════════════════════════════════════ */
 function executeJavaScript(code) {
   const output = [];
+
   const makeEntry = (type) => (...args) =>
     output.push({
       type,
-      text: args.map(a =>
-        a === null ? "null"
-        : a === undefined ? "undefined"
-        : typeof a === "object" ? JSON.stringify(a, null, 2)
-        : String(a)
+      text: args.map((arg) =>
+        arg === null ? "null"
+          : arg === undefined ? "undefined"
+            : typeof arg === "object" ? JSON.stringify(arg, null, 2)
+              : String(arg)
       ).join(" "),
       timestamp: Date.now(),
     });
 
   const mockConsole = {
-    log:   makeEntry("log"),
+    log: makeEntry("log"),
     error: makeEntry("error"),
-    warn:  makeEntry("warn"),
-    info:  makeEntry("log"),
+    warn: makeEntry("warn"),
+    info: makeEntry("log"),
     table: makeEntry("log"),
-    dir:   makeEntry("log"),
+    dir: makeEntry("log"),
     clear: () => {},
   };
 
   try {
     const fn = new Function("console", code);
     const result = fn(mockConsole);
+
     if (result !== undefined) {
       output.push({
         type: "return",
-        text: `→ ${typeof result === "object" ? JSON.stringify(result, null, 2) : String(result)}`,
+        text: `-> ${typeof result === "object" ? JSON.stringify(result, null, 2) : String(result)}`,
         timestamp: Date.now(),
       });
     }
   } catch (err) {
-    output.push({ type: "error", text: `${err.name}: ${err.message}`, timestamp: Date.now() });
+    output.push({
+      type: "error",
+      text: `${err.name}: ${err.message}`,
+      timestamp: Date.now(),
+    });
   }
 
   return output;
