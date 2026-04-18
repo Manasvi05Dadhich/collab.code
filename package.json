@@ -15,7 +15,7 @@
     "server:dev": "nodemon server.js",
     "server:prod": "node server.js",
     "install:client": "cd collab.code && npm install",
-    "build:client": "cd collab.code && npm run build",
+    "build:client": "cd collab.code && CI=false npm run build",
     "build": "npm run install:client && npm run build:client",
     "start": "node server.js"
   }

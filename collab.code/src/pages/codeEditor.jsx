@@ -12,8 +12,6 @@ import {
 } from "../constants/languages";
 import { initSocket } from "../socket";
 import ACTIONS from "../constants/Actions";
-import { WebsocketProvider } from 'y-websocket'
-import { MonacoBinding } from 'y-monaco'
 
 const LANG_COLORS = {
   javascript: "#ff6b6b", typescript: "#69c0ff", python: "#b5f5a0",
