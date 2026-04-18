@@ -12,7 +12,6 @@ import {
 } from "../constants/languages";
 import { initSocket } from "../socket";
 import ACTIONS from "../constants/Actions";
-import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import { MonacoBinding } from 'y-monaco'
 

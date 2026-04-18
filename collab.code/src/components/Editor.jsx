@@ -18,6 +18,7 @@ export default function Editor({
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const providerRef = useRef(null);
+  const ydocRef = useRef(null);
   const [editorReady, setEditorReady] = useState(false);
 
   const handleBeforeMount = (monaco) => {
@@ -93,13 +94,17 @@ export default function Editor({
   };
 
   useEffect(() => {
-    if(!editorRef.current || !monacoRef.current) return;
-    const editor = editorRef.current;
+    if (!editorReady) return;
+
     const ydoc = new Y.Doc();
-    const provider = new WebsocketProvider('ws://localhost:1234', roomId, ydoc);
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = process.env.NODE_ENV === 'production'
+      ? `${wsProtocol}//${window.location.host}/yjs`
+      : 'ws://localhost:5000/yjs';
+    const provider = new WebsocketProvider(wsUrl, roomId, ydoc);
+    ydocRef.current = ydoc;
     providerRef.current = provider;
-    const ytext = ydoc.getText('monaco');
-    const binding = new MonacoBinding(ytext, editor.getModel(), new Set([editor]), provider.awareness);
+
     const colorIndex = username.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % CURSOR_COLORS.length;
     provider.awareness.setLocalStateField('user', {
       name: username,
@@ -169,11 +174,24 @@ export default function Editor({
 
     return () => {
       provider.awareness.off('change', injectAwarenessCursorStyles);
-      binding.destroy();
       provider.disconnect();
       ydoc.destroy();
+      ydocRef.current = null;
+      providerRef.current = null;
     };
   }, [roomId, editorReady, username]);
+
+  useEffect(() => {
+    if (!editorRef.current || !ydocRef.current || !providerRef.current) return;
+
+    const editor = editorRef.current;
+    const ytext = ydocRef.current.getText(filePath);
+    const binding = new MonacoBinding(ytext, editor.getModel(), new Set([editor]), providerRef.current.awareness);
+
+    return () => {
+      binding.destroy();
+    };
+  }, [filePath, editorReady]);
 
 
 

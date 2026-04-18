@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const app = express();
 const http = require('http');
 const { Server } = require('socket.io');
@@ -6,18 +7,33 @@ const server = http.createServer(app);
 const WebSocket = require('ws');
 const { setupWSConnection } = require('y-websocket/bin/utils');
 
+const PORT = process.env.PORT || 5000;
+
 const io = new Server(server, {
     cors: {
-        origin: 'http://localhost:3000',
+        origin: process.env.CLIENT_URL || 'http://localhost:3000',
     },
 });
 
-const PORT = process.env.PORT || 5000;
-const wss = new WebSocket.Server({ port: 1234 });
+const wss = new WebSocket.Server({ noServer: true });
 
 wss.on('connection', (ws, request) => {
     setupWSConnection(ws, request);
     console.log('Y.js client connected');
+});
+
+server.on('upgrade', (request, socket, head) => {
+    if (request.url.startsWith('/yjs')) {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+        });
+    }
+});
+
+app.use(express.static(path.join(__dirname, 'collab.code', 'build')));
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'collab.code', 'build', 'index.html'));
 });
 
 function getAllConnectedClients(roomId) {
