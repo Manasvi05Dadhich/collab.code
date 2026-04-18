@@ -32,7 +32,7 @@ server.on('upgrade', (request, socket, head) => {
 
 app.use(express.static(path.join(__dirname, 'collab.code', 'build')));
 
-app.get('*', (req, res) => {
+app.get('/{*splat}', (req, res) => {
     res.sendFile(path.join(__dirname, 'collab.code', 'build', 'index.html'));
 });
 
